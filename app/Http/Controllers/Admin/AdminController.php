@@ -45,6 +45,19 @@ class AdminController extends Controller
     }
 
     public function reset_peserta() {
+        $pesertas = Ujian::with('account')->get();
+        foreach ($pesertas as $ujian) {
+            if ($ujian->status != 'selesai' && $ujian->mulai_at) {
+                $durasi = 60 * 60; // 60 menit
+                $sisa_waktu = (int) max(0, $durasi - now()->diffInSeconds($ujian->mulai_at));
+                if ($sisa_waktu <= 0) {
+                    $ujian->update([
+                        'status' => 'selesai',
+                        'selesai_at' => now()
+                    ]);
+                }
+            }
+        }
         $peserta = Ujian::with('account')->get();
         return view('admin.pages.reset', compact('peserta'));
     }

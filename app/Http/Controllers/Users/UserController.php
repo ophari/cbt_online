@@ -244,9 +244,13 @@ class UserController extends Controller
             }
 
             // Variabel untuk menyimpan waktu selesai tahap umum
-            $selesai = Carbon::parse($ujian->waktu_selesai_umum);
+            $selesai_umum = Carbon::parse($ujian->waktu_selesai_umum);
+            $sudah_berlalu = (int) $selesai_umum->diffInSeconds(now());
+            $sisa_jeda = 60 - $sudah_berlalu;
+            $sisa_jeda = (int) max(0, $sisa_jeda);
+
             // Cek status ujian jika selesai maka tampilkan halaman selesai atau tampilkan halaman jeda jika belum lewat 60 detik
-            if(now()->diffInSeconds($selesai, false) < 60) {
+            if($sisa_jeda > 0) {
                 // cek status jika sudah selesai maka tampilkan halaman selesai
                 $status = $ujian->status;
                 if($ujian->status == 'selesai') {
@@ -286,8 +290,11 @@ class UserController extends Controller
                     ]);
                 }
 
-                // Jika tidak tampilkan halaman jeda dengan waktu selama 60 detik
-                return view('test.jeda');
+                // Jika tidak tampilkan halaman jeda dengan waktu sisa
+                return view('test.jeda', [
+                    'sisa_jeda' => $sisa_jeda,
+                    'siswa' => $siswa
+                ]);
             }
 
             // jika sudah lewat 60 detik maka lanjut ke tahap kejuruan
@@ -305,20 +312,61 @@ class UserController extends Controller
             return redirect()->route('ujian.soal', $id_siswa);
         }
 
-        // Soal berikutnya berdasarkan jumlah jawaban yang sudah dijawab
-        $jumlah_jawab = Jawaban::where('id_siswa', $id_siswa)
-            ->where('tahap', $ujian->tahap)
-            ->count();
+        $no = request()->query('no');
+        if ($no) {
+            $soal_acak = SoalAcak::with('soal')
+                ->where('id_siswa', $id_siswa)
+                ->where('tahap', $ujian->tahap)
+                ->where('urutan', $no)
+                ->first();
+        } else {
+            // Soal berikutnya berdasarkan jumlah jawaban yang sudah dijawab
+            $jumlah_jawab = Jawaban::where('id_siswa', $id_siswa)
+                ->where('tahap', $ujian->tahap)
+                ->count();
 
-        $soal_acak = SoalAcak::with('soal')
-            ->where('id_siswa', $id_siswa)
-            ->where('tahap', $ujian->tahap)
-            ->orderBy('urutan')
-            ->skip($jumlah_jawab)
-            ->first();
+            $soal_acak = SoalAcak::with('soal')
+                ->where('id_siswa', $id_siswa)
+                ->where('tahap', $ujian->tahap)
+                ->orderBy('urutan')
+                ->skip($jumlah_jawab)
+                ->first();
+        }
 
-        // Jika soal habis, cek tahap dan update status
+        // Jika soal habis (atau nomor di luar batas), cek tahap dan update status
         if(!$soal_acak) {
+            // Cek apakah ada soal yang belum dijawab di tahap ini
+            $semua_soal_tahap_ini = SoalAcak::where('id_siswa', $id_siswa)
+                ->where('tahap', $ujian->tahap)
+                ->pluck('id_soal')
+                ->toArray();
+            
+            $jawaban_tahap_ini = Jawaban::where('id_siswa', $id_siswa)
+                ->where('tahap', $ujian->tahap)
+                ->pluck('id_soal')
+                ->toArray();
+            
+            $soal_belum_dijawab = array_diff($semua_soal_tahap_ini, $jawaban_tahap_ini);
+            
+            if (count($soal_belum_dijawab) > 0) {
+                $id_belum_pertama = reset($soal_belum_dijawab);
+                
+                $semua_urutan_belum = SoalAcak::where('id_siswa', $id_siswa)
+                    ->where('tahap', $ujian->tahap)
+                    ->whereIn('id_soal', $soal_belum_dijawab)
+                    ->orderBy('urutan')
+                    ->pluck('urutan')
+                    ->toArray();
+                
+                $urutan_pertama = SoalAcak::where('id_siswa', $id_siswa)
+                    ->where('tahap', $ujian->tahap)
+                    ->where('id_soal', $id_belum_pertama)
+                    ->value('urutan');
+
+                return redirect()->route('ujian.soal', ['id' => $id_siswa, 'no' => $urutan_pertama])
+                    ->with('error_unanswered', 'Anda tidak bisa menyelesaikan tahap ini karena belum menjawab soal nomor: ' . implode(', ', $semua_urutan_belum) . '.');
+            }
+
             // Selesai tahap umum → ke jeda
             if($ujian->tahap == 'umum') {
                 return view('test.jeda', ['waktu_selesai_umum' => $ujian->waktu_selesai_umum]);
@@ -334,7 +382,7 @@ class UserController extends Controller
                 // Hitung jumlah soal
                 $soal = Soal::count();
 
-                // Ambil semua jawaban untuk menghitung skor (opsional, bisa disimpan di tabel lain)
+                // Ambil semua jawaban
                 $jawaban = Jawaban::with('soal')
                     ->where('id_siswa', $id_siswa)
                     ->get();
@@ -373,30 +421,55 @@ class UserController extends Controller
             ->orderBy('urutan')
             ->get();
 
+        $jawaban_user = Jawaban::where('id_siswa', $id_siswa)
+            ->where('tahap', $ujian->tahap)
+            ->pluck('jawaban', 'id_soal')
+            ->toArray();
+
         return view('test.soal', [
             'siswa' => $siswa,
             'soal' => $soal_acak,
             'urutan' => $soal_acak->urutan,
             'tahap' => $ujian->tahap,
             'sisa_waktu' => $hasil_akhir,
-            'semua_soal' => $semua_soal
+            'semua_soal' => $semua_soal,
+            'jawaban_user' => $jawaban_user
         ]);
     }
 
     private function cek_tahap($siswa, $ujian)
     {
-        // cek kalau sudah selesai tahap umum tapi belum update ke jeda → update ke jeda
+        // Hitung sisa waktu ujian (Umum)
+        $mulai_at = \Carbon\Carbon::parse($ujian->mulai_at);
+        $durasi_menit = 60; // Durasi total ujian umum
+        $waktu_selesai = $mulai_at->copy()->addMinutes($durasi_menit);
+        $is_time_up = now()->greaterThanOrEqualTo($waktu_selesai);
+
+        // cek kalau sudah selesai tahap umum atau waktu habis → update ke jeda
         if ($ujian->tahap == 'umum') {
-            $total_soal_umum = SoalAcak::with('soal')
-            ->where('id_siswa', $siswa->id)
-            ->where('tahap', 'umum')
-            ->count();
+            $total_soal_umum = SoalAcak::where('id_siswa', $siswa->id)
+                ->where('tahap', 'umum')
+                ->count();
 
             $jumlah_jawab = Jawaban::where('id_siswa', $siswa->id)
-            ->where('tahap', 'umum')
-            ->count();
-            if ($jumlah_jawab == $total_soal_umum && $total_soal_umum > 0) {
-                // update tahap ke jeda dan waktu selesai umum
+                ->where('tahap', 'umum')
+                ->count();
+
+            // Selesai jika semua soal dijawab ATAU waktu habis
+            if (($jumlah_jawab == $total_soal_umum && $total_soal_umum > 0) || $is_time_up) {
+                // Cek apakah ada soal untuk tahap selanjutnya (kejuruan)
+                $kategori_kejuruan = $this->get_kategori_soal($siswa, 'kejuruan');
+                $jumlah_soal_kejuruan = Soal::whereIn('kategori', (array) $kategori_kejuruan)->count();
+
+                // Jika tidak ada soal kejuruan (berarti umum adalah tahap terakhir), langsung jadikan kejuruan tanpa jeda
+                if ($jumlah_soal_kejuruan == 0) {
+                    $ujian->update([
+                        'tahap' => 'kejuruan'
+                    ]);
+                    return;
+                }
+
+                // update tahap ke jeda dan simpan waktu selesai umum (untuk hitung mundur jeda)
                 $ujian->update([
                     'tahap' => 'jeda',
                     'waktu_selesai_umum' => now()
@@ -407,21 +480,22 @@ class UserController extends Controller
         }
 
         if($ujian->tahap == 'jeda') {
-            // ✅ belum lewat 60 detik → tampilkan halaman jeda
             if (!$ujian->waktu_selesai_umum) {
                 return;
             }
 
-            $selesai = Carbon::parse($ujian->waktu_selesai_umum);
-            if(now()->diffInSeconds($selesai, false) >= 60) {
+            $selesai_umum = Carbon::parse($ujian->waktu_selesai_umum);
+            $sudah_berlalu = (int) $selesai_umum->diffInSeconds(now());
+
+            // Jika belum lewat 60 detik, biarkan di halaman jeda
+            if($sudah_berlalu < 60) {
                 return;
             }
 
             // ✅ sudah lewat 60 detik → lanjut ke kejuruan
             $ujian->update(['tahap' => 'kejuruan']);
             // Generate soal kejuruan jika belum ada
-            if(SoalAcak::with('soal')
-                ->where('id_siswa', $siswa->id)
+            if(SoalAcak::where('id_siswa', $siswa->id)
                 ->where('tahap', 'kejuruan')
                 ->count() == 0) {
                 $this->generate_soal($siswa, 'kejuruan');

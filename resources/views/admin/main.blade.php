@@ -221,7 +221,7 @@
                 <a class="list-group-item list-group-item-action bg-transparent " href="#!">
                     <i class="bi bi-cloud-arrow-down-fill"></i> Backup
                 </a>
-                <a class="list-group-item list-group-item-action bg-transparent text-danger-emphasis" href="#!">
+                <a class="list-group-item list-group-item-action bg-transparent text-danger-emphasis" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                     <i class="bi bi-box-arrow-left"></i> Keluar
                 </a>
             </div>
@@ -243,7 +243,7 @@
                             <ul class="dropdown-menu dropdown-menu-end shadow">
                                 <li><a class="dropdown-item" href="#">Profil</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="#">Keluar</a></li>
+                                <li><a class="dropdown-item text-danger" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Keluar</a></li>
                             </ul>
                         </div>
                     </div>
@@ -261,6 +261,10 @@
             </footer>
         </div>
     </div>
+
+    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
+        @csrf
+    </form>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>

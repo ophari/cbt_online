@@ -25,9 +25,10 @@
     </div>
     
     <script>
-        // Coundown timer 60 detik
-        let countdown = 60;
+        // Coundown timer dinamis
+        let countdown = {{ $sisa_jeda ?? 60 }};
         const timerElement = document.getElementById('timer');
+        timerElement.textContent = countdown;
 
         const countDown = setInterval(function() {
             countdown--;

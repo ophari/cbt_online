@@ -3,8 +3,23 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Users\UserController;
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\ProfileController;
 
-Route::prefix('apps_ade')->group(function() {
+Route::get('/', function () {
+    return redirect()->route('ujian.index');
+});
+
+Route::get('/dashboard', function () {
+    return redirect()->route('admin.index');
+})->middleware(['auth'])->name('dashboard');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+Route::prefix('apps_ade')->middleware('auth')->group(function() {
     Route::get('/', [AdminController::class, 'index'])->name('admin.index');
     Route::get('/peserta', [AdminController::class, 'peserta'])->name('admin.peserta');
     Route::get('/soal', [AdminController::class, 'soal'])->name('admin.soal');
@@ -31,3 +46,5 @@ Route::prefix('ujian')->group(function() {
     Route::post('/simpan_jawaban', [UserController::class, 'simpan_jawaban'])->name('ujian.simpan_jawaban');
     Route::post('/reset/{id}', [UserController::class, 'reset_ujian'])->name('ujian.reset');
 });
+
+require __DIR__.'/auth.php';
