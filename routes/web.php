@@ -1,9 +1,9 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Users\UserController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Users\UserController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect()->route('ujian.index');
@@ -19,7 +19,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::prefix('apps_ade')->middleware('auth')->group(function() {
+Route::prefix('apps_ade')->middleware('auth')->group(function () {
     Route::get('/', [AdminController::class, 'index'])->name('admin.index');
     Route::get('/peserta', [AdminController::class, 'peserta'])->name('admin.peserta');
     Route::get('/soal', [AdminController::class, 'soal'])->name('admin.soal');
@@ -33,10 +33,15 @@ Route::prefix('apps_ade')->middleware('auth')->group(function() {
     Route::get('/aktif-peserta/nonaktifkan-peserta/{id}', [AdminController::class, 'nonaktifkan_peserta'])->name('admin.aktif_peserta.one_nonaktif');
     Route::get('/aktif-peserta/aktifkan-peserta/{id}', [AdminController::class, 'aktifkan_peserta'])->name('admin.aktif_peserta.one_aktif');
     Route::get('/reset/{id}', [AdminController::class, 'reset'])->name('admin.reset');
+
+    // Token Ujian
+    Route::get('/token', [AdminController::class, 'token_ujian'])->name('admin.token');
+    Route::post('/token/generate', [AdminController::class, 'generate_token'])->name('admin.token.generate');
+    Route::get('/token/active', [AdminController::class, 'get_active_token'])->name('admin.token.active');
 });
 
-Route::prefix('ujian')->group(function() {
-    Route::get('/', function() {
+Route::prefix('ujian')->group(function () {
+    Route::get('/', function () {
         return view('test.cek');
     })->name('ujian.index');
 
@@ -45,6 +50,7 @@ Route::prefix('ujian')->group(function() {
     Route::get('/soal/{id}', [UserController::class, 'halaman_soal'])->name('ujian.soal');
     Route::post('/simpan_jawaban', [UserController::class, 'simpan_jawaban'])->name('ujian.simpan_jawaban');
     Route::post('/reset/{id}', [UserController::class, 'reset_ujian'])->name('ujian.reset');
+    Route::post('/auto-selesai', [UserController::class, 'auto_selesai'])->name('ujian.auto_selesai');
 });
 
 require __DIR__.'/auth.php';

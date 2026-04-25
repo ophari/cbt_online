@@ -13,7 +13,8 @@ class Ujian extends Model
         'tahap',
         'mulai_at',
         'waktu_selesai_umum',
-        'selesai_at'
+        'selesai_at',
+        'session_id',
     ];
 
     protected $casts = [

@@ -6,12 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class SoalAcak extends Model
 {
-
     protected $fillable = [
         'id_siswa',
         'id_soal',
         'urutan',
-        'tahap'
+        'tahap',
+        'opsi_map',
+    ];
+
+    protected $casts = [
+        'opsi_map' => 'array',
     ];
 
     public function account()

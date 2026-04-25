@@ -11,13 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('soal_acaks', function (Blueprint $table) {
+        Schema::create('token_ujians', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_siswa')->constrained('accounts')->cascadeOnDelete();
-            $table->foreignId('id_soal')->constrained('soals')->cascadeOnDelete();
-            $table->integer('urutan');
-            $table->string('tahap');
-            $table->json('opsi_map')->nullable();
+            $table->string('token', 5)->unique();
+            $table->boolean('is_active')->default(true);
+            $table->timestamp('expired_at')->nullable();
             $table->timestamps();
         });
     }
@@ -27,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('soal_acaks');
+        Schema::dropIfExists('token_ujians');
     }
 };

@@ -203,10 +203,13 @@
                 </a>
 
                 <div class="menu-label">Pelaksanaan</div>
-                <a class="list-group-item list-group-item-action bg-transparent" href="{{ route('admin.aktif_peserta') }}">
+                <a class="list-group-item list-group-item-action bg-transparent @if (Route::currentRouteName() == 'admin.token') active @endif" href="{{ route('admin.token') }}">
+                    <i class="bi bi-key-fill"></i> Token Ujian
+                </a>
+                <a class="list-group-item list-group-item-action bg-transparent @if (Route::currentRouteName() == 'admin.aktif_peserta') active @endif" href="{{ route('admin.aktif_peserta') }}">
                     <i class="bi bi-people-fill"></i> Aktif Peserta
                 </a>
-                <a class="list-group-item list-group-item-action bg-transparent" href="{{ route('admin.reset_peserta') }}">
+                <a class="list-group-item list-group-item-action bg-transparent @if (Route::currentRouteName() == 'admin.reset_peserta') active @endif" href="{{ route('admin.reset_peserta') }}">
                     <i class="bi bi-arrow-repeat"></i> Reset Peserta
                 </a>
                 <a class="list-group-item list-group-item-action bg-transparent @if (Route::currentRouteName() == 'admin.koreksi') active @endif" href="{{ route('admin.koreksi') }}">

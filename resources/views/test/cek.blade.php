@@ -65,12 +65,20 @@
                                 </div>
                             @endif
                             <form action="{{ route('ujian.cek_peserta') }}" method="POST">
-                                <div class="mb-4">
+                                @csrf
+                                <div class="mb-3">
                                     <label for="nisn" class="form-label fw-semibold text-muted">Username / No. NISN</label>
-                                    <input type="text" class="form-control form-control-lg" id="nisn" name="nisn" placeholder="Contoh: 0085370210" required autocomplete="off"
-                                    >
+                                    <input type="text" class="form-control form-control-lg" id="nisn" name="nisn" placeholder="Contoh: 0085370210" required autocomplete="off" value="{{ old('nisn') }}">
                                     <div class="form-text mt-2">
                                         Gunakan NISN yang ada di prunus digidaw.
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="token" class="form-label fw-semibold text-muted">Token Ujian</label>
+                                    <input type="text" class="form-control form-control-lg text-uppercase text-center fw-bold" id="token" name="token" placeholder="Contoh: X8B9Q" required autocomplete="off" maxlength="5" style="letter-spacing: 5px; font-size: 1.3rem;" value="{{ old('token') }}">
+                                    <div class="form-text mt-2">
+                                        Masukkan token yang tertulis di papan tulis.
                                     </div>
                                 </div>
 
@@ -84,7 +92,7 @@
                     </div>
 
                     <div class="text-center mt-4 text-muted small">
-                        &copy; 2024CBT Online - Dibuat oleh M Ade Maulana, S.Kom - Versi 1.0 Beta
+                        &copy; 2024 CBT Online - Dibuat oleh M Ade Maulana, S.Kom - Versi 2.0
                     </div>
 
                 </div>

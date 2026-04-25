@@ -9,12 +9,13 @@ class Soal extends Model
     protected $fillable = [
         'kategori',
         'pertanyaan',
+        'gambar',
         'jawaban_a',
         'jawaban_b',
         'jawaban_c',
         'jawaban_d',
         'jawaban_e',
-        'kunci_jawaban'
+        'kunci_jawaban',
     ];
 
     public function jawaban()

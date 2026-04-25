@@ -20,6 +20,7 @@ return new class extends Migration
             $table->timestamp('mulai_at')->nullable();
             $table->timestamp('waktu_selesai_umum')->nullable();
             $table->timestamp('selesai_at')->nullable();
+            $table->string('session_id')->nullable();
             $table->timestamps();
         });
     }

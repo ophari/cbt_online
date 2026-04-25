@@ -19,11 +19,8 @@
             <i class="bi bi-exclamation-triangle-fill me-2"></i> {{ session('error_unanswered') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
-        <script>
-            // Jika mau ditambah alert js:
-            // alert("{{ session('error_unanswered') }}");
-        </script>
     @endif
+
 
     <div class="mb-3 d-flex justify-content-between align-items-center">
         <button class="btn btn-outline-primary btn-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalNomor">
@@ -60,10 +57,25 @@
         </div>
     </div>
 
+    <!-- Modal Waktu Habis -->
+    <div class="modal fade" id="modalWaktuHabis" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content text-center p-4">
+                <div class="display-1 text-danger mb-3">⏰</div>
+                <h4 class="fw-bold text-danger">Waktu Habis!</h4>
+                <p class="text-muted">Ujian Anda telah berakhir karena waktu sudah habis. Jawaban yang sudah disimpan akan dihitung.</p>
+                <div class="spinner-border text-primary mt-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted small mt-2">Mengalihkan ke halaman hasil...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Kartu Soal -->
     <div class="card quiz-card p-4 p-md-5">
         <div class="mb-4">
-            <h4 class="mt-2 lh-base">{{ $soal->soal->pertanyaan }}</h4>
+            <h4 class="mt-2 lh-base">{!! $soal->soal->pertanyaan !!}</h4>
         </div>
 
         <form id="formJawaban">
@@ -72,22 +84,36 @@
             <input type="hidden" id="urutan" value="{{ $soal->urutan }}">
             <input type="hidden" id="tahap" value="{{ $soal->tahap }}">
             @php
-                $jawaban = [
+                // Ambil mapping opsi acak untuk soal ini
+                $opsi_map = $soal->opsi_map ?? ['A'=>'A','B'=>'B','C'=>'C','D'=>'D','E'=>'E'];
+                // opsi_map: posisi tampil => opsi asli
+                // Contoh: ['A'=>'C','B'=>'A','C'=>'E','D'=>'B','E'=>'D']
+                // Artinya: di posisi A, tampilkan isi jawaban_c
+
+                $jawaban_asli = [
                     'A' => $soal->soal->jawaban_a,
                     'B' => $soal->soal->jawaban_b,
                     'C' => $soal->soal->jawaban_c,
                     'D' => $soal->soal->jawaban_d,
                     'E' => $soal->soal->jawaban_e,
                 ];
+
+                // Balik mapping: opsi asli => posisi tampil (untuk menandai jawaban yang sudah dipilih)
+                $reverse_map = array_flip($opsi_map);
+
                 $currentAnswer = $jawaban_user[$soal->id_soal] ?? null;
             @endphp
 
-            @foreach (['A','B','C','D','E'] as $opt)
+            @foreach (['A','B','C','D','E'] as $posisi_tampil)
+                @php
+                    $opsi_asli = $opsi_map[$posisi_tampil]; // Opsi asli yang ditampilkan di posisi ini
+                    $teks_jawaban = $jawaban_asli[$opsi_asli]; // Isi teks jawaban aslinya
+                @endphp
                 <div class="option-container">
-                    <input type="radio" class="btn-check" name="jawaban" id="opt{{ $loop->index + 1 }}" value="{{ $opt }}" {{ $currentAnswer == $opt ? 'checked' : '' }}>
+                    <input type="radio" class="btn-check" name="jawaban" id="opt{{ $loop->index + 1 }}" value="{{ $opsi_asli }}" {{ $currentAnswer == $opsi_asli ? 'checked' : '' }} {{ isset($waktuHabis) && $waktuHabis ? 'disabled' : '' }}>
                     <label class="option-label" for="opt{{ $loop->index + 1 }}">
-                        <span class="option-badge">{{ $opt }}</span>
-                        <span>{{ $jawaban[$opt] }}</span>
+                        <span class="option-badge">{{ $posisi_tampil }}</span>
+                        <span>{!! $teks_jawaban !!}</span>
                     </label>
                 </div>
             @endforeach
@@ -108,8 +134,54 @@
         </form>
     </div>
 
+    {{-- Anti Copy-Paste CSS --}}
+    <style>
+        /* Prevent text selection */
+        .quiz-card,
+        .option-label,
+        .option-container,
+        h4.lh-base {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+
     <script>
+        // Anti Copy-Paste: disable right-click, copy, cut, paste
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('copy', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('cut', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('paste', function(e) {
+            e.preventDefault();
+        });
+        // Block keyboard shortcuts (Ctrl+C, Ctrl+V, Ctrl+U, Ctrl+Shift+I, F12)
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && (e.key === 'c' || e.key === 'C' || e.key === 'v' || e.key === 'V' || e.key === 'u' || e.key === 'U' || e.key === 'a' || e.key === 'A')) {
+                e.preventDefault();
+            }
+            if (e.key === 'F12') {
+                e.preventDefault();
+            }
+            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j')) {
+                e.preventDefault();
+            }
+        });
+    </script>
+
+    <script>
+        let examFinished = false;
+
         function simpanJawaban() {
+            if (examFinished) return;
+
             let jawaban = document.querySelector('input[name="jawaban"]:checked');
             if (!jawaban) {
                 alert('Pilih jawaban dulu!');
@@ -142,12 +214,60 @@
                     window.location.href = url.href;
                 } else {
                     console.log('gagal:', res.message);
-                    alert(res.message);
+                    // Jika waktu habis dari server, langsung finish
+                    if (res.message && res.message.includes('Waktu habis')) {
+                        finishExam();
+                    } else {
+                        alert(res.message);
+                    }
                 }
             })
             .catch(err => {
                 console.error('Error:', err);
                 alert('Terjadi kesalahan saat menyimpan jawaban. Silakan coba lagi.');
+            });
+        }
+
+        function finishExam() {
+            if (examFinished) return;
+            examFinished = true;
+
+            // Disable semua input
+            document.querySelectorAll('input[name="jawaban"]').forEach(el => el.disabled = true);
+            document.querySelectorAll('button').forEach(el => el.disabled = true);
+            document.querySelectorAll('a.btn').forEach(el => {
+                el.style.pointerEvents = 'none';
+                el.style.opacity = '0.5';
+            });
+
+            // Tampilkan modal waktu habis
+            const modal = new bootstrap.Modal(document.getElementById('modalWaktuHabis'));
+            modal.show();
+
+            // Kirim request auto-selesai ke server
+            fetch('/ujian/auto-selesai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({
+                    id_siswa: document.getElementById('id_siswa').value
+                })
+            })
+            .then(res => res.json())
+            .then(res => {
+                // Redirect ke halaman soal (yang akan menampilkan halaman selesai)
+                setTimeout(() => {
+                    window.location.href = "/ujian/soal/{{ $siswa->id }}";
+                }, 2500);
+            })
+            .catch(err => {
+                console.error('Auto-selesai error:', err);
+                // Tetap redirect meskipun error
+                setTimeout(() => {
+                    window.location.href = "/ujian/soal/{{ $siswa->id }}";
+                }, 2500);
             });
         }
     </script>
@@ -160,34 +280,39 @@
             if (sisa > 0) {
                 sisa--;
 
-                // 1. Hitung Jam, Menit, dan Detik
-                // Math.floor digunakan untuk membulatkan angka ke bawah
                 let hours = Math.floor(sisa / 3600);
                 let minutes = Math.floor((sisa % 3600) / 60);
                 let seconds = sisa % 60;
 
-                // 2. Tambahkan angka "0" di depan jika angka di bawah 10 agar formatnya konsisten (01, 02, dst)
                 let displayHours = hours < 10 ? "0" + hours : hours;
                 let displayMinutes = minutes < 10 ? "0" + minutes : minutes;
                 let displaySeconds = seconds < 10 ? "0" + seconds : seconds;
 
-                // 3. Tampilkan di layar
-                // Jika durasi di bawah 1 jam, cukup tampilkan Menit:Detik saja
                 if (hours > 0) {
                     display.innerText = `${displayHours}:${displayMinutes}:${displaySeconds}`;
                 } else {
                     display.innerText = `${displayMinutes}:${displaySeconds}`;
                 }
 
+                // Warna merah berkedip saat kurang dari 60 detik
+                if (sisa <= 60) {
+                    display.classList.add('text-danger');
+                    display.style.animation = 'blink 1s infinite';
+                }
+
             } else {
                 clearInterval(x);
                 display.innerText = "Waktu Habis";
-
-                // 🔥 redirect ke backend biar trigger controller
-                setTimeout(() => {
-                    window.location.href = "/ujian/soal/{{ $siswa->id }}";
-                }, 1000);
+                finishExam();
             }
         }, 1000);
     </script>
+
+    <style>
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+
 @endsection
